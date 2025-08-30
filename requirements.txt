@@ -1,0 +1,5 @@
+streamlit
+autogen-agentchat
+openai   
+duckdb
+pandas
