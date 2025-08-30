@@ -1,5 +1,6 @@
 streamlit
 autogen-agentchat
+autogen-ext[ollama]
 openai   
 duckdb
 pandas
