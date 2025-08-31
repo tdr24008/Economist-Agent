@@ -1,52 +1,151 @@
-import os, pathlib, streamlit as st
-from agents import analyst_reply, maybe_execute_fenced_code  # ⬅️ add this
+import os
+import sys
+import asyncio
 
-st.set_page_config(page_title="Economist Agent", layout="wide")
+from assistants import get_data_analyst_team
+from autogen_agentchat.messages import TextMessage
+from autogen_core import CancellationToken
+import streamlit as st
+import pandas as pd
 
-st.title("Economist Agent 📈🏦💰")
-st.write("Interactive economist research assistant (Streamlit + Autogen).")
+async def reset_chat():
+    """Clear the chat history."""
+    if "messages" in st.session_state:
+        st.session_state["messages"] = []
+    if "agent" in st.session_state:
+        await st.session_state["agent"].reset()
 
-# Dirs for safe I/O
-DATA_DIR = str(pathlib.Path("data").resolve()); os.makedirs(DATA_DIR, exist_ok=True)
-OUT_DIR  = str(pathlib.Path("out").resolve());  os.makedirs(OUT_DIR,  exist_ok=True)
+def initialize_data_analyst_agent():
+    """Initialize the Data Analyst Agent."""
+    # Initialize the agent with the provided GitHub PAT and model selection
+    print(f"Creating agent with model {st.session_state['model_selection']}...")
+    st.session_state["agent"] = get_data_analyst_team(
+        # st.session_state["gh_pat"], 
+        st.session_state["model_selection"]
+    )
 
-# Sidebar
-st.sidebar.header("Settings")
-specialism = st.sidebar.selectbox("Choose a specialism",
-                                  ["General", "Macroeconomics", "Labour", "Trade", "IO"])
-uploaded_file = st.sidebar.file_uploader("Upload dataset (CSV/Parquet)", type=["csv", "parquet"])
+# Solution for Windows users
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
-# Save uploaded file (optional)
-if uploaded_file is not None:
-    dest = pathlib.Path(DATA_DIR) / uploaded_file.name
-    with open(dest, "wb") as f:
-        f.write(uploaded_file.read())
-    st.sidebar.success(f"Saved to {dest}")
 
-# Chat UI
-st.subheader("Chat with the Economist Agent")
+# Streamlit app
+st.set_page_config(page_title="📊 Economist Agent", layout="wide")
+
+
+# initialize chat history
 if "messages" not in st.session_state:
-    st.session_state.messages = []
+    st.session_state["messages"] = []
 
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.write(msg["content"])
+# Ensure the event loop is created only once
+if "event_loop" not in st.session_state:
+    st.session_state["event_loop"] = asyncio.new_event_loop()
+    asyncio.set_event_loop(st.session_state["event_loop"])
 
-if prompt := st.chat_input("Ask me about your data or economics..."):
-    # user message
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.write(prompt)
+st.title("📊 Economist Agent")
+st.markdown(
+    """
+    A powerful multi-agent system built with AutoGen 0.4 that provides automated data analysis, visualization, and insights generation through an interactive chat interface.
 
-    # 🔌 call the analyst (uses Ollama via agents.py)
-    analyst_text = analyst_reply(prompt)
-    st.session_state.messages.append({"role": "assistant", "content": analyst_text})
-    with st.chat_message("assistant"):
-        st.write(analyst_text)
+    - **Data Analysis**: Ask questions about your dataset and get insights.
+    - **Data Visualization**: Request visualizations to better understand your data.
+    - **Interactive Chat**: Engage in a conversation with the agent to refine your queries and get more detailed answers.
 
-    # ▶️ execute first fenced ```python block if present
-    exec_res = maybe_execute_fenced_code(analyst_text, DATA_DIR, OUT_DIR)
-    if exec_res.get("ran"):
-        st.divider(); st.subheader("Execution report")
-        st.code(exec_res["result"])
+    """
+)
 
+st.sidebar.header("Upload Dataset")
+uploaded_file = st.sidebar.file_uploader(
+    "Upload a CSV or TSV file", type=["csv", "tsv"]
+)
+
+# Add reset button to sidebar
+st.sidebar.button(
+    "New Chat",
+    on_click=lambda: asyncio.run(reset_chat()),
+    type="secondary",
+    use_container_width=True
+)
+
+# gh_pat = st.sidebar.text_input(
+#     "GitHub Personal Access Token (PAT)",
+#     placeholder="Enter your GitHub PAT here",
+#     type="password",
+#     key="gh_pat"
+# )
+
+
+# if gh_pat:
+st.sidebar.selectbox(
+    "Select a model",
+    options=["llama3.1:8b","qwen2.5-coder","qwen3:8b"],
+    index=0,
+    key="model_selection",
+    on_change=initialize_data_analyst_agent
+)
+
+if uploaded_file:
+    try:
+        # Create a directory to save the uploaded file
+        if not os.path.exists("code_executor"):
+            os.makedirs("code_executor")
+        # Save the uploaded file to the local directory
+        local_file_path = os.path.join("code_executor", uploaded_file.name)
+        
+        st.write("### Data Preview")
+        # Determine file type and read accordingly
+        if uploaded_file.name.endswith(".csv"):
+            df = pd.read_csv(uploaded_file, encoding="utf-8")
+            st.dataframe(df)
+            df.to_csv(local_file_path, index=False)
+        elif uploaded_file.name.endswith(".tsv"):
+            df = pd.read_csv(uploaded_file, sep="\t", encoding="utf-8")
+            st.dataframe(df)
+            df.to_csv(local_file_path, sep="\t", index=False)
+
+        # displying chat history messages
+        for message in st.session_state["messages"]:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+        user_query = st.chat_input("Ask a query about the data...")
+
+        # if not st.session_state["gh_pat"]:
+        #     st.error("Please enter your GitHub Personal Access Token (PAT) to proceed.")
+        #     st.stop()
+        
+        if not st.session_state["model_selection"]:
+            st.error("Please select a model to proceed.")
+            st.stop()
+
+        # if st.session_state["gh_pat"] and 
+        
+        if st.session_state["model_selection"]and "agent" not in st.session_state:
+            initialize_data_analyst_agent()
+
+        if user_query:
+            if user_query.strip() == "":
+                st.warning("Please enter a query.")
+            else:
+                st.session_state["messages"].append({"role": "user", "content": user_query})
+                with st.chat_message("user"):
+                    st.markdown(user_query)
+
+                user_query += f" (Dataset to be analysed is present at: {uploaded_file.name})"
+
+                # Define an asynchronous function: this is needed to use await
+                async def initiate_chat():
+                    await st.session_state["agent"].run(
+                        task=[TextMessage(content=user_query, source="user")],
+                        cancellation_token=CancellationToken(),
+                    )
+                    st.stop()  # Stop code execution after termination command
+
+                # Run the asynchronous function within the event loop
+                st.session_state["event_loop"].run_until_complete(initiate_chat())
+
+    except Exception as e:
+        st.error(f"Error processing file: {e}")
+
+# stop app after termination command
+st.stop()

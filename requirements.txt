@@ -1,6 +1,8 @@
 streamlit
 autogen-agentchat
 autogen-ext[ollama]
-openai   
-duckdb
+langchain-experimental
+matplotlib
 pandas
+python-dotenv
+seaborn
