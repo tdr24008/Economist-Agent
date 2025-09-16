@@ -1,0 +1,342 @@
+[1mdiff --git a/README.md b/README.md[m
+[1mindex 6ec6400..160a153 100644[m
+[1m--- a/README.md[m
+[1m+++ b/README.md[m
+[36m@@ -1,11 +1,13 @@[m
+[31m-# Economist Agent 📈🏦💰[m
+[32m+[m[32m# Economist RAG Agent 📈🏦💰📚[m
+ [m
+[31m-An interactive **economist research assistant** built with **Streamlit** and **Autogen AgentChat**, running locally for maximum data security.  [m
+[32m+[m[32mAn interactive **economist research assistant** built with **Streamlit**, **Autogen AgentChat**, and enhanced with **Hybrid RAG capabilities**, running locally for maximum data security.[m
+ [m
+[31m-The system combines multiple agents:[m
+[31m-- **Data Analyst Agent**: proposes specifications, checks identification assumptions, explains methods.  [m
+[31m-- **Code Executor Agent**: runs Python analysis in a sandbox (DuckDB) and returns only safe artifacts (plots, tables).  [m
+[31m-- **Retriever Agent**: provides literature and documentation lookups via local RAG, allowing the economist to have access to relevant policies and research whilst still running locally.[m
+[32m+[m[32mThe system combines three specialized agents:[m
+[32m+[m[32m- **RAG Retriever Agent**: Searches literature and provides research context using hybrid search (vector + keyword + knowledge graph)[m
+[32m+[m[32m- **Data Analyst Agent**: Proposes specifications, checks identification assumptions, explains methods[m
+[32m+[m[32m- **Code Executor Agent**: Runs Python analysis in a sandbox and returns safe artifacts (plots, tables)[m
+[32m+[m
+[32m+[m[32m**🔍 RAG Enhancement**: Upload and search through economic research papers, reports, and literature to provide context-aware analysis backed by academic sources.[m
+ [m
+ Models are served locally via **[Ollama](https://ollama.com/)** — no API keys, no external data leakage.[m
+ [m
+[36m@@ -13,11 +15,14 @@[m [mModels are served locally via **[Ollama](https://ollama.com/)** — no API keys,[m
+ [m
+ ## Features[m
+ [m
+[31m-- 🔒 **Secure by default**: all LLM calls and code execution are offline.  [m
+[31m-- 📊 **Reproducible analysis**: each run generates a manifest (dataset hash, code, seeds, library versions).  [m
+[31m-- 🧑‍💻 **Sandboxed execution**: Docker-isolated runner with read-only datasets and restricted permissions.  [m
+[31m-- 📚 **Domain memory (RAG)**: ingest PDFs, docs, and notes so the agent can be an expert within a field.  [m
+[31m-- 🖥️ **Economist-native UX**: Streamlit interface with chat, pre-analysis plan, results tabs, and traceable citations.[m
+[32m+[m[32m- 🔒 **Secure by default**: All LLM calls and code execution are offline via Ollama[m
+[32m+[m[32m- 📊 **Quantitative analysis**: Data analysis, visualization, and statistical insights[m
+[32m+[m[32m- 📚 **Literature search**: Hybrid RAG with vector, keyword, and knowledge graph search[m
+[32m+[m[32m- 🧑‍💻 **Multi-agent collaboration**: Specialized agents for retrieval, analysis, and execution[m
+[32m+[m[32m- 📑 **Document processing**: Upload and search economic papers, reports, and research[m
+[32m+[m[32m- 🎯 **Context-aware insights**: Combine quantitative data with literature context[m
+[32m+[m[32m- 🖥️ **Economist-native UX**: Streamlit interface with document upload and source citations[m
+[32m+[m[32m- 🔄 **Mock mode**: Works out-of-the-box without database setup[m
+ [m
+ ---[m
+ [m
+[1mdiff --git a/agents.py b/agents.py[m
+[1mindex 40f38c7..38ba8e1 100644[m
+[1m--- a/agents.py[m
+[1m+++ b/agents.py[m
+[36m@@ -15,6 +15,15 @@[m [mimport os[m
+ import re[m
+ import streamlit as st[m
+ from typing import AsyncGenerator, Sequence[m
+[32m+[m[32mimport asyncio[m
+[32m+[m[32mimport sys[m
+[32m+[m
+[32m+[m[32m# Add path for hybrid_rag_agent imports[m
+[32m+[m[32msys.path.append(os.path.join(os.path.dirname(__file__), 'hybrid_rag_agent'))[m
+[32m+[m
+[32m+[m[32m# RAG Agent imports[m
+[32m+[m[32mfrom hybrid_rag_agent.agent import hybrid_rag_agent, run_hybrid_rag_async[m
+[32m+[m[32mfrom hybrid_rag_agent.dependencies import SearchDependencies[m
+ [m
+ [m
+ [m
+[36m@@ -98,7 +107,185 @@[m [mclass TrackableAssistantAgent(AssistantAgent):[m
+         pattern = r'([a-zA-Z0-9_\-]+\.png)'[m
+         matches = re.findall(pattern, response)[m
+         return list(set(matches))[m
+[31m-    [m
+[32m+[m
+[32m+[m
+[32m+[m[32mclass RAGRetrieverAgent(TrackableAssistantAgent):[m
+[32m+[m[32m    """[m
+[32m+[m[32m    RAG Retriever Agent that integrates Pydantic AI's hybrid RAG capabilities[m
+[32m+[m[32m    with Autogen's agent framework. This agent provides document search and[m
+[32m+[m[32m    literature retrieval functionality to enhance economic analysis.[m
+[32m+[m[32m    """[m
+[32m+[m
+[32m+[m[32m    def __init__(self, name: str, model_client, **kwargs):[m
+[32m+[m[32m        """Initialize the RAG Retriever Agent."""[m
+[32m+[m[32m        system_message = """You are a Research Literature Assistant specializing in economic research and documentation.[m
+[32m+[m[32m        You have access to a hybrid RAG (Retrieval-Augmented Generation) system with multiple search capabilities:[m
+[32m+[m
+[32m+[m[32m        1. **Document Search**: Find relevant research papers, economic reports, and literature[m
+[32m+[m[32m        2. **Semantic Search**: Locate content based on meaning and context[m
+[32m+[m[32m        3. **Knowledge Graph Search**: Explore relationships between economic entities, policies, and indicators[m
+[32m+[m[32m        4. **Comprehensive Search**: Combine multiple search methods for thorough research[m
+[32m+[m
+[32m+[m[32m        When users ask research questions or need literature context:[m
+[32m+[m[32m        - Use the most appropriate search method based on the query type[m
+[32m+[m[32m        - Provide relevant documents and source citations[m
+[32m+[m[32m        - Summarize key findings from retrieved literature[m
+[32m+[m[32m        - Connect document insights to the user's economic analysis needs[m
+[32m+[m
+[32m+[m[32m        Always cite your sources and indicate which documents or research papers support your responses.[m
+[32m+[m[32m        Focus on providing valuable context that enhances quantitative economic analysis."""[m
+[32m+[m
+[32m+[m[32m        super().__init__([m
+[32m+[m[32m            name=name,[m
+[32m+[m[32m            model_client=model_client,[m
+[32m+[m[32m            system_message=system_message,[m
+[32m+[m[32m            **kwargs[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # Initialize RAG dependencies in mock mode by default[m
+[32m+[m[32m        self._rag_deps = None[m
+[32m+[m[32m        self._initialized = False[m
+[32m+[m
+[32m+[m[32m    async def _ensure_rag_initialized(self):[m
+[32m+[m[32m        """Ensure RAG dependencies are initialized."""[m
+[32m+[m[32m        if not self._initialized:[m
+[32m+[m[32m            try:[m
+[32m+[m[32m                self._rag_deps = SearchDependencies(use_mocks=True)[m
+[32m+[m[32m                await self._rag_deps.initialize()[m
+[32m+[m[32m                self._initialized = True[m
+[32m+[m[32m            except Exception as e:[m
+[32m+[m[32m                st.error(f"Failed to initialize RAG capabilities: {e}")[m
+[32m+[m[32m                self._rag_deps = None[m
+[32m+[m
+[32m+[m[32m    async def search_documents(self, query: str, search_type: str = "hybrid") -> str:[m
+[32m+[m[32m        """[m
+[32m+[m[32m        Search documents using the RAG system.[m
+[32m+[m
+[32m+[m[32m        Args:[m
+[32m+[m[32m            query: Search query[m
+[32m+[m[32m            search_type: Type of search ("hybrid", "vector", "graph", "comprehensive")[m
+[32m+[m
+[32m+[m[32m        Returns:[m
+[32m+[m[32m            Formatted search results[m
+[32m+[m[32m        """[m
+[32m+[m[32m        await self._ensure_rag_initialized()[m
+[32m+[m
+[32m+[m[32m        if not self._rag_deps:[m
+[32m+[m[32m            return "RAG search capabilities are not available."[m
+[32m+[m
+[32m+[m[32m        try:[m
+[32m+[m[32m            if search_type == "hybrid":[m
+[32m+[m[32m                results = await self._rag_deps.hybrid_search(query, limit=5)[m
+[32m+[m[32m            elif search_type == "vector":[m
+[32m+[m[32m                results = await self._rag_deps.vector_search(query, limit=5)[m
+[32m+[m[32m            elif search_type == "graph":[m
+[32m+[m[32m                results = await self._rag_deps.graph_search(query)[m
+[32m+[m[32m            elif search_type == "comprehensive":[m
+[32m+[m[32m                results = await self._rag_deps.comprehensive_search(query, limit=5)[m
+[32m+[m[32m            else:[m
+[32m+[m[32m                return f"Unknown search type: {search_type}"[m
+[32m+[m
+[32m+[m[32m            if not results:[m
+[32m+[m[32m                return f"No results found for query: {query}"[m
+[32m+[m
+[32m+[m[32m            # Format results for display[m
+[32m+[m[32m            if search_type == "comprehensive":[m
+[32m+[m[32m                return self._format_comprehensive_results(results)[m
+[32m+[m[32m            else:[m
+[32m+[m[32m                return self._format_search_results(results, search_type)[m
+[32m+[m
+[32m+[m[32m        except Exception as e:[m
+[32m+[m[32m            return f"Search failed: {str(e)}"[m
+[32m+[m
+[32m+[m[32m    def _format_search_results(self, results, search_type: str) -> str:[m
+[32m+[m[32m        """Format search results for display."""[m
+[32m+[m[32m        if not results:[m
+[32m+[m[32m            return "No results found."[m
+[32m+[m
+[32m+[m[32m        formatted = [f"**{search_type.title()} Search Results:**\n"][m
+[32m+[m
+[32m+[m[32m        for i, result in enumerate(results[:5], 1):[m
+[32m+[m[32m            content = result.get('content', 'No content available')[m
+[32m+[m[32m            title = result.get('document_title', 'Unknown Document')[m
+[32m+[m[32m            source = result.get('document_source', 'Unknown Source')[m
+[32m+[m
+[32m+[m[32m            if search_type == "graph":[m
+[32m+[m[32m                fact = result.get('fact', content)[m
+[32m+[m[32m                valid_at = result.get('valid_at', 'Unknown time')[m
+[32m+[m[32m                formatted.append(f"{i}. **{fact}**\n   Valid from: {valid_at}\n")[m
+[32m+[m[32m            else:[m
+[32m+[m[32m                similarity = result.get('similarity', result.get('combined_score', 0))[m
+[32m+[m[32m                formatted.append(f"{i}. **{title}** ({source})\n   {content[:200]}{'...' if len(content) > 200 else ''}\n   Relevance: {similarity:.2f}\n")[m
+[32m+[m
+[32m+[m[32m        return "\n".join(formatted)[m
+[32m+[m
+[32m+[m[32m    def _format_comprehensive_results(self, results) -> str:[m
+[32m+[m[32m        """Format comprehensive search results."""[m
+[32m+[m[32m        output = ["**Comprehensive Search Results:**\n"][m
+[32m+[m
+[32m+[m[32m        vector_results = results.get('vector_results', [])[m
+[32m+[m[32m        if vector_results:[m
+[32m+[m[32m            output.append("**📄 Document Results:**")[m
+[32m+[m[32m            for i, result in enumerate(vector_results[:3], 1):[m
+[32m+[m[32m                title = result.get('document_title', 'Unknown Document')[m
+[32m+[m[32m                content = result.get('content', '')[:150][m
+[32m+[m[32m                similarity = result.get('similarity', 0)[m
+[32m+[m[32m                output.append(f"{i}. **{title}** (Similarity: {similarity:.2f})\n   {content}...\n")[m
+[32m+[m
+[32m+[m[32m        graph_results = results.get('graph_results', [])[m
+[32m+[m[32m        if graph_results:[m
+[32m+[m[32m            output.append("**🔗 Knowledge Graph Results:**")[m
+[32m+[m[32m            for i, result in enumerate(graph_results[:3], 1):[m
+[32m+[m[32m                fact = result.get('fact', 'Unknown fact')[m
+[32m+[m[32m                valid_at = result.get('valid_at', 'Unknown time')[m
+[32m+[m[32m                output.append(f"{i}. {fact} (Valid from: {valid_at})")[m
+[32m+[m
+[32m+[m[32m        total = results.get('total_results', 0)[m
+[32m+[m[32m        output.append(f"\n*Found {total} total results across all search methods.*")[m
+[32m+[m
+[32m+[m[32m        return "\n".join(output)[m
+[32m+[m
+[32m+[m[32m    async def on_messages_stream([m
+[32m+[m[32m        self, messages: Sequence[ChatMessage], cancellation_token: CancellationToken[m
+[32m+[m[32m    ) -> AsyncGenerator[AgentEvent | ChatMessage | Response, None]:[m
+[32m+[m[32m        """Override to handle RAG-specific message processing."""[m
+[32m+[m
+[32m+[m[32m        # Check if the latest message contains search requests[m
+[32m+[m[32m        if messages:[m
+[32m+[m[32m            latest_msg = messages[-1][m
+[32m+[m[32m            if hasattr(latest_msg, 'content') and isinstance(latest_msg.content, str):[m
+[32m+[m[32m                content = latest_msg.content.lower()[m
+[32m+[m
+[32m+[m[32m                # Auto-trigger searches based on keywords[m
+[32m+[m[32m                if any(keyword in content for keyword in ['search', 'find', 'literature', 'research', 'papers']):[m
+[32m+[m[32m                    query = latest_msg.content[m
+[32m+[m
+[32m+[m[32m                    # Determine search type based on content[m
+[32m+[m[32m                    if 'relationship' in content or 'connect' in content:[m
+[32m+[m[32m                        search_type = "graph"[m
+[32m+[m[32m                    elif 'comprehensive' in content or 'thorough' in content:[m
+[32m+[m[32m                        search_type = "comprehensive"[m
+[32m+[m[32m                    else:[m
+[32m+[m[32m                        search_type = "hybrid"[m
+[32m+[m
+[32m+[m[32m                    # Perform search and create response[m
+[32m+[m[32m                    search_results = await self.search_documents(query, search_type)[m
+[32m+[m
+[32m+[m[32m                    # Create a text response with search results[m
+[32m+[m[32m                    search_response = TextMessage([m
+[32m+[m[32m                        content=f"I found relevant research literature for your query:\n\n{search_results}",[m
+[32m+[m[32m                        source=self.name[m
+[32m+[m[32m                    )[m
+[32m+[m
+[32m+[m[32m                    # Track on streamlit[m
+[32m+[m[32m                    self._track_response_on_streamlit(search_response)[m
+[32m+[m[32m                    yield search_response[m
+[32m+[m
+[32m+[m[32m        # Continue with normal message processing[m
+[32m+[m[32m        async for msg in super().on_messages_stream(messages, cancellation_token):[m
+[32m+[m[32m            yield msg[m
+[32m+[m
+[32m+[m
+ def get_data_analyst_team(model: str) -> RoundRobinGroupChat:[m
+     """[m
+     Creates and returns a RoundRobinGroupChat instance consisting of a data analyst agent [m
+[36m@@ -175,7 +362,7 @@[m [mdef get_data_analyst_team(model: str) -> RoundRobinGroupChat:[m
+         reflect_on_tool_use=True,[m
+         model_client=model_client,[m
+         system_message="""You are a code executor agent. You can execute Python code and return the results.[m
+[31m-        [m
+[32m+[m
+         ## Guidelines[m
+         - You must execute your written Python code whenever possible[m
+         - If the code excution fails, you must debug & provide concise feedback to fix the error(s) in natural language[m
+[36m@@ -184,7 +371,13 @@[m [mdef get_data_analyst_team(model: str) -> RoundRobinGroupChat:[m
+         """,[m
+     )[m
+ [m
+[32m+[m[32m    rag_retriever_agent = RAGRetrieverAgent([m
+[32m+[m[32m        name="RAGRetrieverAgent",[m
+[32m+[m[32m        model_client=model_client,[m
+[32m+[m[32m        description="A research literature assistant that provides document search and context retrieval for economic analysis.",[m
+[32m+[m[32m    )[m
+[32m+[m
+     # Terminate the conversation if the tweet scheduler agent mentions "TERMINATE" or if the conversation exceeds 25 messages[m
+[31m-    termination_condition = TextMentionTermination("TERMINATE") | MaxMessageTermination(max_messages=20)[m
+[32m+[m[32m    termination_condition = TextMentionTermination("TERMINATE") | MaxMessageTermination(max_messages=25)[m
+ [m
+[31m-    return RoundRobinGroupChat([data_analyst_agent, code_executer_agent], termination_condition=termination_condition)[m
+[32m+[m[32m    return RoundRobinGroupChat([rag_retriever_agent, data_analyst_agent, code_executer_agent], termination_condition=termination_condition)[m
+[1mdiff --git a/app.py b/app.py[m
+[1mindex 313ac42..ba47f48 100644[m
+[1m--- a/app.py[m
+[1m+++ b/app.py[m
+[36m@@ -2,7 +2,7 @@[m [mimport os[m
+ import sys[m
+ import asyncio[m
+ [m
+[31m-from assistants import get_data_analyst_team[m
+[32m+[m[32mfrom agents import get_data_analyst_team[m
+ from autogen_agentchat.messages import TextMessage[m
+ from autogen_core import CancellationToken[m
+ import streamlit as st[m
+[36m@@ -42,14 +42,22 @@[m [mif "event_loop" not in st.session_state:[m
+     st.session_state["event_loop"] = asyncio.new_event_loop()[m
+     asyncio.set_event_loop(st.session_state["event_loop"])[m
+ [m
+[31m-st.title("📊 Economist Agent")[m
+[32m+[m[32mst.title("📊 Economist RAG Agent")[m
+ st.markdown([m
+     """[m
+[31m-    A powerful multi-agent system built with AutoGen 0.4 that provides automated data analysis, visualization, and insights generation through an interactive chat interface.[m
+[32m+[m[32m    A powerful multi-agent system built with AutoGen 0.4 and enhanced with RAG (Retrieval-Augmented Generation) capabilities that provides automated data analysis, visualization, and literature-backed insights through an interactive chat interface.[m
+ [m
+[31m-    - **Data Analysis**: Ask questions about your dataset and get insights.[m
+[31m-    - **Data Visualization**: Request visualizations to better understand your data.[m
+[31m-    - **Interactive Chat**: Engage in a conversation with the agent to refine your queries and get more detailed answers.[m
+[32m+[m[32m    **🔍 Enhanced Capabilities:**[m
+[32m+[m[32m    - **Data Analysis**: Ask questions about your dataset and get insights[m
+[32m+[m[32m    - **Data Visualization**: Request visualizations to better understand your data[m
+[32m+[m[32m    - **Literature Search**: Search economic research papers and reports for context[m
+[32m+[m[32m    - **Document Retrieval**: Upload and search through economic literature[m
+[32m+[m[32m    - **Interactive Chat**: Engage with multiple specialized agents for comprehensive analysis[m
+[32m+[m
+[32m+[m[32m    **🤖 Agent Team:**[m
+[32m+[m[32m    - **RAG Retriever**: Searches literature and provides research context[m
+[32m+[m[32m    - **Data Analyst**: Plans analysis steps and creates insights[m
+[32m+[m[32m    - **Code Executor**: Runs Python analysis and generates visualizations[m
+ [m
+     """[m
+ )[m
+[36m@@ -59,6 +67,33 @@[m [muploaded_file = st.sidebar.file_uploader([m
+     "Upload a CSV or TSV file", type=["csv", "tsv"][m
+ )[m
+ [m
+[32m+[m[32m# Add document upload section for RAG[m
+[32m+[m[32mst.sidebar.header("Upload Documents")[m
+[32m+[m[32mst.sidebar.markdown("*Upload research papers, reports, or economic literature for context*")[m
+[32m+[m[32muploaded_docs = st.sidebar.file_uploader([m
+[32m+[m[32m    "Upload PDF, TXT, or MD files",[m
+[32m+[m[32m    type=["pdf", "txt", "md"],[m
+[32m+[m[32m    accept_multiple_files=True,[m
+[32m+[m[32m    key="document_uploader"[m
+[32m+[m[32m)[m
+[32m+[m
+[32m+[m[32m# Process uploaded documents[m
+[32m+[m[32mif uploaded_docs:[m
+[32m+[m[32m    docs_dir = os.path.join("documents", "economics")[m
+[32m+[m[32m    if not os.path.exists(docs_dir):[m
+[32m+[m[32m        os.makedirs(docs_dir)[m
+[32m+[m
+[32m+[m[32m    uploaded_doc_names = [][m
+[32m+[m[32m    for uploaded_doc in uploaded_docs:[m
+[32m+[m[32m        doc_path = os.path.join(docs_dir, uploaded_doc.name)[m
+[32m+[m[32m        with open(doc_path, "wb") as f:[m
+

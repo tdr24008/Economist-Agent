@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//mnt/c/Users/Bricksave/CursorProjects/Hybrid RAG Agent/hybrid_rag_agent/**)",
+      "Bash(python test:*)",
+      "Bash(python3:*)",
+      "Bash(claude mcp add:*)",
+      "Read(//mnt/c/Users/Bricksave/Desktop/**)",
+      "mcp__archon__health_check",
+      "mcp__archon__session_info",
+      "mcp__archon__list_projects",
+      "mcp__archon__perform_rag_query",
+      "mcp__archon__search_code_examples",
+      "WebFetch(domain:docs.weaviate.io)",
+      "WebFetch(domain:neo4j.com)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker compose:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

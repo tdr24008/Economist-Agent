@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  weaviate:
+    image: semitechnologies/weaviate:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Enable authentication for production
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+
+      # Data persistence
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+
+      # Default settings
+      QUERY_DEFAULTS_LIMIT: 20
+      DEFAULT_VECTORIZER_MODULE: 'text2vec-openai'
+
+      # Enable required modules
+      ENABLE_MODULES: 'text2vec-openai,qna-openai'
+
+      # OpenAI configuration (will use API key from environment)
+      OPENAI_APIKEY: ${OPENAI_API_KEY:-}
+
+      # Performance tuning
+      GOMAXPROCS: 1
+
+      # Backup configuration
+      BACKUP_FILESYSTEM_PATH: '/var/lib/weaviate/backups'
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/.well-known/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  neo4j:
+    image: neo4j:5-community
+    restart: unless-stopped
+    ports:
+      - "7474:7474"  # Browser interface
+      - "7687:7687"  # Bolt protocol
+    environment:
+      # Authentication
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-password123}
+
+      # Performance settings
+      NEO4J_dbms_memory_heap_initial__size: 512m
+      NEO4J_dbms_memory_heap_max__size: 1G
+      NEO4J_dbms_memory_pagecache_size: 512m
+
+      # APOC procedures (useful for graph operations)
+      NEO4J_PLUGINS: '["apoc"]'
+
+      # Security settings
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+      NEO4J_dbms_security_procedures_allowlist: apoc.*
+
+      # Browser configuration
+      NEO4J_browser_remote__content__hostname__whitelist: '*'
+      NEO4J_browser_post__connect__cmd: 'play start'
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_import:/var/lib/neo4j/import
+      - neo4j_plugins:/plugins
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_PASSWORD:-password123}", "RETURN 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Redis for caching (can be added later)
+  # redis:
+  #   image: redis:7-alpine
+  #   restart: unless-stopped
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   command: redis-server --appendonly yes
+
+volumes:
+  weaviate_data:
+    driver: local
+  neo4j_data:
+    driver: local
+  neo4j_logs:
+    driver: local
+  neo4j_import:
+    driver: local
+  neo4j_plugins:
+    driver: local
+  # redis_data:
+  #   driver: local
+
+networks:
+  default:
+    name: hybrid-rag-network
