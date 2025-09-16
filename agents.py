@@ -13,178 +13,151 @@ from autogen_ext.tools.code_execution import PythonCodeExecutionTool
 from dotenv import load_dotenv
 import os
 import re
+import pathlib
 import streamlit as st
 from typing import AsyncGenerator, Sequence
 
 
+# -------------------------------
+# Environment-driven configuration
+# -------------------------------
+load_dotenv()  # allows .env or env vars
+
+# Model server + model
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")
+DEFAULT_MODEL_NAME = os.getenv("MODEL_NAME", "qwen2.5:3b-instruct-q4_K_M")  # TEMP on t3.micro
+
+# Paths (optional but handy to keep consistent across the app)
+DATA_DIR = pathlib.Path(os.getenv("DATA_DIR", "data")).resolve()
+OUT_DIR = pathlib.Path(os.getenv("OUT_DIR", "out")).resolve()
+CODE_WORK_DIR = pathlib.Path(os.getenv("CODE_WORK_DIR", "./code_executor")).resolve()
+
+# Ensure the directories exist
+for p in (DATA_DIR, OUT_DIR, CODE_WORK_DIR):
+    p.mkdir(parents=True, exist_ok=True)
+
 
 class TrackableAssistantAgent(AssistantAgent):
     """
-    A specialized assistant agent that tracks and displays responses on Streamlit 
-    while processing messages. This class extends the functionality of the 
-    `AssistantAgent` by adding methods to handle and visualize responses, including 
-    tool call requests, text messages, and responses containing image references.
-    Methods:
-        on_messages_stream(messages, cancellation_token):
-            Asynchronously processes a stream of messages, tracks responses on 
-            Streamlit, and yields each message (modified or unmodified).
-        _track_response_on_streamlit(msg):
-            Tracks and displays the response on Streamlit based on the type of 
-            message (e.g., tool call requests, text messages, or responses).
-        _handle_text_message(msg):
-            Handles text messages by formatting the content, appending it to 
-            Streamlit's session state, and displaying it in the chat interface. 
-            Also processes image references if the message is from the 
-            "DataAnalystAgent".
-        _image_files_in_response(response):
-            Extracts image file paths from a response string using regex matching. 
-            Assumes image file paths are in the format '<file_name>.png'.
+    AssistantAgent that writes its responses to Streamlit as they stream in.
     """
+
     async def on_messages_stream(
         self, messages: Sequence[ChatMessage], cancellation_token: CancellationToken
     ) -> AsyncGenerator[AgentEvent | ChatMessage | Response, None]:
-         async for msg in super().on_messages_stream(
-            messages=messages,
-            cancellation_token=cancellation_token,
-         ):
+        async for msg in super().on_messages_stream(
+            messages=messages, cancellation_token=cancellation_token
+        ):
             self._track_response_on_streamlit(msg)
-            
-            # Yield the item (modified or unmodified)
             yield msg
 
     def _track_response_on_streamlit(self, msg):
         if isinstance(msg, ToolCallRequestEvent):
-            content = f"**[{msg.source}] Tool calls requested:** " + ", ".join(f"{tool.name}" for tool in msg.content)
-            st.session_state["messages"].append(
-                {"role": "assistant", "content": content}
+            content = (
+                f"**[{msg.source}] Tool calls requested:** "
+                + ", ".join(f"{tool.name}" for tool in msg.content)
             )
+            st.session_state["messages"].append({"role": "assistant", "content": content})
             with st.chat_message("assistant", avatar="🛠️"):
                 st.markdown(content)
-        
+
         elif (isinstance(msg, TextMessage)) and msg.source != "user":
             self._handle_text_message(msg)
 
-        elif isinstance(msg, Response):
-            if isinstance(msg.chat_message, TextMessage):
-                self._handle_text_message(msg.chat_message)
-        else:
-            pass
+        elif isinstance(msg, Response) and isinstance(msg.chat_message, TextMessage):
+            self._handle_text_message(msg.chat_message)
 
     def _handle_text_message(self, msg: TextMessage) -> None:
         msg_content = f"**[{msg.source}]**\n{msg.content.replace('TERMINATE', '').strip()}"
-        st.session_state["messages"].append(
-            {"role": "assistant", "content": msg_content}
-        )
+        st.session_state["messages"].append({"role": "assistant", "content": msg_content})
+
         if msg.source == "DataAnalystAgent":
             image_files = self._image_files_in_response(msg_content)
             with st.chat_message("assistant"):
                 st.markdown(msg_content)
                 for image_file in image_files:
-                    image_path = os.path.join("code_executor", image_file)
-                    if os.path.exists(image_path):
-                        st.image(image_path, caption=image_file)
-                    # else:
-                        # st.error(f"Image file {image_file} not found.")
+                    image_path = CODE_WORK_DIR / image_file
+                    if image_path.exists():
+                        st.image(str(image_path), caption=image_file)
         else:
             with st.chat_message("assistant"):
                 st.markdown(msg_content)
 
-
     def _image_files_in_response(self, response: str) -> list[str]:
-        """
-        Extracts image file paths from the response string (using regex matching)
-        Assumes that image file paths are in the format '<file_name>.png
-        """
-        pattern = r'([a-zA-Z0-9_\-]+\.png)'
+        """Return unique *.png names mentioned in the text."""
+        pattern = r"([a-zA-Z0-9_\-]+\.png)"
         matches = re.findall(pattern, response)
         return list(set(matches))
-    
-def get_data_analyst_team(model: str) -> RoundRobinGroupChat:
-    """
-    Creates and returns a RoundRobinGroupChat instance consisting of a data analyst agent 
-    and a code executor agent, designed to collaboratively analyze datasets, generate insights, 
-    create visualizations, and execute Python code.
-    
-    Steps:
-    1. Initializes an AzureAIChatCompletionClient with the specified model, endpoint, and credentials.
-    2. Creates a PythonCodeExecutionTool for executing Python code in a local command-line environment.
-    3. Configures a `TrackableAssistantAgent` for data analysis (`DataAnalystAgent`) with detailed 
-       system instructions for analyzing datasets, generating visualizations, and creating reports.
-    4. Configures a `TrackableAssistantAgent` for code execution (`CodeExecutorAgent`) with system 
-       instructions for executing Python code and handling errors.
-    5. Sets up a termination condition based on either a specific keyword ("TERMINATE") or a maximum 
-       number of messages (15).
-    6. Combines the agents into a `RoundRobinGroupChat` to enable collaborative interaction.
-    
-    Args:
-        gh_pat (str): GitHub personal access token for authentication.
-        model (str): The model name to be used by the AzureAIChatCompletionClient.
-    
-    Returns:
-        RoundRobinGroupChat: A group chat instance with the data analyst agent and code executor agent, 
-        along with the defined termination conditions.
-    """
 
-    # load_dotenv()
-    # Create the Client
+
+def get_data_analyst_team(model: str | None = None) -> RoundRobinGroupChat:
+    """
+    Build a two-agent team:
+      - DataAnalystAgent (plans analysis, writes Python)
+      - CodeExecutorAgent (executes Python via local shell)
+
+    Args:
+        model: optional model name. If None, uses env var MODEL_NAME.
+    """
+    model_name = model or DEFAULT_MODEL_NAME
+
+    # Chat client for Ollama
     model_client = OllamaChatCompletionClient(
-        model= model,
-        host = "http://localhost:11434/",
+        model=model_name,
+        host=OLLAMA_HOST,  # e.g., http://127.0.0.1:11434
         model_info={
             "json_output": True,
             "function_calling": True,
             "vision": True,
             "family": "unknown",
         },
-
     )
 
+    # Code execution tool (works in CODE_WORK_DIR)
     python_code_executor_tool = PythonCodeExecutionTool(
-        LocalCommandLineCodeExecutor(work_dir="./code_executor"),
+        LocalCommandLineCodeExecutor(work_dir=str(CODE_WORK_DIR))
     )
 
     data_analyst_agent = TrackableAssistantAgent(
         name="DataAnalystAgent",
-        description="A data analyst agent that can analyze data, extract insights, create stunning visualizations and generate reports.",
+        description=(
+            "A data analyst agent that can analyze data, extract insights, "
+            "create visualizations and generate reports."
+        ),
         model_client=model_client,
-        system_message="""You are an expert data analyst agent. You can analyze complex datasets, mine interesting insights, create stunning visualizations and generate reports.
-
-        You will be given the path to a dataset to analyse & address the user's query.
-        
-        ## Guidelines
-        - Your first message must be a detailed plan of the steps you will take to analyze the data & address the user's query
-        - You must write **correct** & **optimized** Python code to analyze data, extract insights, create visualizations and generate reports
-        - Always start your code with all required `import` statements regardless of previous context
-        - Always write complete code (NOT just incremental snippets) while iterating on the code
-        - Initially, famialiarize yourself with the dataset, its structure & columns 
-        - You must visualize the data most appropriatly using the best libraries available
-        - Ensure that your visualizations are clear, informative and visually appealing, and **do NOT have any clutter**
-        - If you generate any visualizations, you must save them to the local disk strictly in PNG format
-        - Given any user query, your first stp must be to plan the steps to be taken to analyze the data
-        - In the final response, you must explain the results of your analysis and visualizations in a clear and concise manner
-        - Always mention the file names of the generated image files in your response
-        - Do **NOT** summarize th findings until you have rceived feedback about correct execution of the code
-        - You must end with the word 'TERMINATE' only at the end of your final response, once you are done with your analysis. **Do NOT use the word 'TERMINATE' if you have NOT received any feedback regarding the code execution.**
-        """,
+        system_message=(
+            "You are an expert data analyst.\n\n"
+            "Guidelines:\n"
+            "- First send a clear analysis plan for the user's dataset/query.\n"
+            "- Write complete, executable Python (start with all imports).\n"
+            "- Prefer tidy, parsimonious analysis and clear plots.\n"
+            "- Save any figures to PNG files and mention their filenames.\n"
+            "- Do not say 'TERMINATE' until code has executed successfully.\n"
+            "TERMINATE only when you are fully done."
+        ),
     )
 
-    code_executer_agent = TrackableAssistantAgent(
+    code_executor_agent = TrackableAssistantAgent(
         name="CodeExecutorAgent",
-        description="A code executor agent that can execute Python code.",
+        description="Executes Python code locally and reports success/errors.",
         tools=[python_code_executor_tool],
         reflect_on_tool_use=True,
         model_client=model_client,
-        system_message="""You are a code executor agent. You can execute Python code and return the results.
-        
-        ## Guidelines
-        - You must execute your written Python code whenever possible
-        - If the code excution fails, you must debug & provide concise feedback to fix the error(s) in natural language
-        - Do NOT use any code snippets in your feedback
-        - If things run file, just indicate that the code executed successfully in a concise message with the file name of the generated image files
-        """,
+        system_message=(
+            "You execute Python code and return results.\n"
+            "- Always run the code provided by the analyst when possible.\n"
+            "- If execution fails, explain fixes briefly (no code snippets).\n"
+            "- If success, confirm and list any generated image filenames."
+        ),
     )
 
-    # Terminate the conversation if the tweet scheduler agent mentions "TERMINATE" or if the conversation exceeds 25 messages
-    termination_condition = TextMentionTermination("TERMINATE") | MaxMessageTermination(max_messages=20)
+    # Termination: mention of TERMINATE or max turns
+    termination_condition = TextMentionTermination("TERMINATE") | MaxMessageTermination(
+        max_messages=20
+    )
 
-    return RoundRobinGroupChat([data_analyst_agent, code_executer_agent], termination_condition=termination_condition)
+    return RoundRobinGroupChat(
+        [data_analyst_agent, code_executor_agent],
+        termination_condition=termination_condition,
+    )
+
