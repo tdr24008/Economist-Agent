@@ -2,7 +2,7 @@ import os
 import sys
 import asyncio
 
-from assistants import get_data_analyst_team
+from agents import get_data_analyst_team
 from autogen_agentchat.messages import TextMessage
 from autogen_core import CancellationToken
 import streamlit as st
