@@ -14,7 +14,8 @@
       "WebFetch(domain:docs.weaviate.io)",
       "WebFetch(domain:neo4j.com)",
       "Bash(docker-compose up:*)",
-      "Bash(docker compose:*)"
+      "Bash(docker compose:*)",
+      "Bash(pip install:*)"
     ],
     "deny": [],
     "ask": []

@@ -40,3 +40,15 @@ def build_data_analyst(tools:list) -> AssistantAgent:
     )
 
     return DataAnalyst
+
+def analyst_reply(prompt: str):
+    """Simple function to simulate analyst reply for demo"""
+    return f"Economist analysis for: {prompt}\n\nThis would be processed by the hybrid RAG system with Federal Reserve data."
+
+def maybe_execute_fenced_code(text: str):
+    """Extract and potentially execute Python code from fenced blocks"""
+    import re
+    code_blocks = re.findall(r'```python\n(.*?)\n```', text, re.DOTALL)
+    if code_blocks:
+        return f"Found {len(code_blocks)} code block(s) for execution"
+    return "No executable code found"
