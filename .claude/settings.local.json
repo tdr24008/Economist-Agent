@@ -16,7 +16,13 @@
       "Bash(docker-compose up:*)",
       "Bash(docker compose:*)",
       "Bash(pip install:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(cmd.exe /c \"docker ps\")",
+      "Bash(ping:*)",
+      "Bash(curl:*)",
+      "Bash(cmd.exe /c \"docker logs economist-agent-weaviate-1\" --timeout 10000)",
+      "Bash(cmd.exe /c \"docker logs --tail 20 economist-agent-weaviate-1\")",
+      "Bash(streamlit run:*)"
     ],
     "deny": [],
     "ask": []
