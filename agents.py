@@ -195,11 +195,12 @@ def get_data_analyst_team(model: str | None = None) -> RoundRobinGroupChat:
         system_message=(
             "You are an expert data analyst.\n\n"
             "Guidelines:\n"
-            "- First send a clear analysis plan for the user's dataset/query.\n"
-            "- Write complete, executable Python (start with all imports).\n"
-            "- Prefer tidy, parsimonious analysis and clear plots.\n"
-            "- Save any figures to PNG files and mention their filenames.\n"
-            "- Do not say 'TERMINATE' until code has executed successfully.\n"
+            "- Wait for the RAG retriever to provide literature context first\n"
+            "- Combine literature insights with your data analysis plan\n"
+            "- Write complete, executable Python (start with all imports)\n"
+            "- Prefer tidy, parsimonious analysis and clear plots\n"
+            "- Save any figures to PNG files and mention their filenames\n"
+            "- Do not say 'TERMINATE' until code has executed successfully\n"
             "TERMINATE only when you are fully done."
         ),
     )
@@ -220,11 +221,11 @@ def get_data_analyst_team(model: str | None = None) -> RoundRobinGroupChat:
 
     # Termination: mention of TERMINATE or max turns
     termination_condition = TextMentionTermination("TERMINATE") | MaxMessageTermination(
-        max_messages=20
+        max_messages=30  # Increased for 3-agent team
     )
 
     return RoundRobinGroupChat(
-        [data_analyst_agent, code_executor_agent],
+        [rag_retriever_agent, data_analyst_agent, code_executor_agent],
         termination_condition=termination_condition,
     )
 
