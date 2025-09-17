@@ -3,4 +3,5 @@ __pycache__/
 .env
 .streamlit/
 .venv
+venv/
 code_executor

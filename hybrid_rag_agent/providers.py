@@ -1,12 +1,11 @@
 """Model provider configuration for Hybrid RAG Agent integrating with existing infrastructure."""
 
 from pydantic_ai.models.test import TestModel
-from settings import load_settings
+from .settings import load_settings
 import warnings
-import os
 
 # Import from existing infrastructure
-from utils.providers import get_llm_model as infra_get_llm_model, get_embedding_client, get_embedding_model
+from .utils.providers import get_llm_model as infra_get_llm_model, get_embedding_client, get_embedding_model
 
 def get_llm_model():
     """Get configured LLM model using existing infrastructure with fallback to TestModel."""

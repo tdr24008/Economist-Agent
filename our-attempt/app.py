@@ -1,4 +1,6 @@
-import os, pathlib, streamlit as st
+import os
+import pathlib
+import streamlit as st
 from tools import get_py_tool
 from agents import analyst_reply, maybe_execute_fenced_code  # ⬅️ add this
 
@@ -8,8 +10,10 @@ st.title("Economist Agent 📈🏦💰")
 st.write("Interactive economist research assistant (Streamlit + Autogen).")
 
 # Dirs for safe I/O
-DATA_DIR = str(pathlib.Path("data").resolve()); os.makedirs(DATA_DIR, exist_ok=True)
-OUT_DIR  = str(pathlib.Path("out").resolve());  os.makedirs(OUT_DIR,  exist_ok=True)
+DATA_DIR = str(pathlib.Path("data").resolve())
+os.makedirs(DATA_DIR, exist_ok=True)
+OUT_DIR = str(pathlib.Path("out").resolve())
+os.makedirs(OUT_DIR, exist_ok=True)
 
 # Sidebar
 st.sidebar.header("Settings")
@@ -54,6 +58,7 @@ if prompt := st.chat_input("Ask me about your data or economics..."):
     # ▶️ execute first fenced ```python block if present
     exec_res = maybe_execute_fenced_code(analyst_text, DATA_DIR, OUT_DIR)
     if exec_res.get("ran"):
-        st.divider(); st.subheader("Execution report")
+        st.divider()
+        st.subheader("Execution report")
         st.code(exec_res["result"])
 

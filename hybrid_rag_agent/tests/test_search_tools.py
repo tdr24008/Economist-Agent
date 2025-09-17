@@ -2,10 +2,9 @@
 
 import pytest
 from pydantic_ai import RunContext
-from pydantic_ai.models.test import TestModel
 
-from agent import hybrid_rag_agent
-from dependencies import SearchDependencies, MockSearchDependencies
+from ..agent import hybrid_rag_agent
+from ..dependencies import SearchDependencies
 
 class TestSearchTools:
     """Test suite for individual search tools."""
@@ -13,7 +12,17 @@ class TestSearchTools:
     @pytest.fixture
     def run_context_mock(self, search_dependencies_mock_mode):
         """Create a RunContext with mock dependencies."""
-        return RunContext(deps=search_dependencies_mock_mode, retry=0)
+        from pydantic_ai import UsageInfo
+
+        # Create a minimal usage info for testing
+        usage = UsageInfo()
+
+        return RunContext(
+            deps=search_dependencies_mock_mode,
+            retry=0,
+            model="test-model",
+            usage=usage
+        )
 
     @pytest.mark.asyncio
     async def test_hybrid_search_tool(self, run_context_mock):

@@ -1,0 +1,66 @@
+{
+    "env": {
+      "CLAUDE_FLOW_AUTO_COMMIT": "false",
+      "CLAUDE_FLOW_AUTO_PUSH": "false",
+      "CLAUDE_FLOW_HOOKS_ENABLED": "true",
+      "CLAUDE_FLOW_TELEMETRY_ENABLED": "true",
+      "CLAUDE_FLOW_REMOTE_EXECUTION": "true",
+      "CLAUDE_FLOW_CHECKPOINTS_ENABLED": "true"
+    },
+    "permissions": {
+      "allow": [
+        "Bash(npx claude-flow *)",
+        "Bash(npm run lint)",
+        "Bash(npm run test:*)",
+        "Bash(npm test *)",
+        "Bash(git status)",
+        "Bash(git diff *)",
+        "Bash(git log *)",
+        "Bash(git add *)",
+        "Bash(git commit *)",
+        "Bash(git push)",
+        "Bash(git config *)",
+        "Bash(git tag *)",
+        "Bash(git branch *)",
+        "Bash(git checkout *)",
+        "Bash(git stash *)",
+        "Bash(jq *)",
+        "Bash(node *)",
+        "Bash(which *)",
+        "Bash(pwd)",
+        "Bash(ls *)",
+        "Bash(cd:*)",
+        "Bash(./venv/Scripts/python.exe*)",
+        "Bash(./venv/Scripts/python.exe -m py_compile *)",
+        "Bash(./venv/Scripts/python.exe -m py_compile src/modules/integration/trello/*)",
+        "Bash(./venv/Scripts/python.exe -m py_compile src/modules/ad_hoc/property_chatbot/*)",
+        "Bash(./venv/Scripts/python.exe src/modules/integration/trello/* --help)",
+        "Bash(./venv/Scripts/python.exe src/modules/ad_hoc/property_chatbot/* --help)",
+        "Bash(python3 *)",
+        "Bash(python *)",
+        "Bash(PYTHONPATH=* ./venv/Scripts/python.exe *)",
+        "Bash(cd * && *)",
+        "Bash(pytest *)",
+        "Bash(ruff *)",
+        "Bash(mypy *)",
+        "Bash(find *)",
+        "Bash(grep *)",
+        "Bash(cat *)",
+        "Bash(head *)",
+        "Bash(tail *)",
+        "Bash(wc *)",
+        "Bash(sort *)",
+        "Bash(uniq *)",
+        "Task(*)"
+      ],
+      "deny": [
+        "Bash(rm -rf /)",
+        "Bash(curl * | bash)",
+        "Bash(wget * | sh)",
+        "Bash(eval *)"
+      ]
+    },
+    "includeCoAuthoredBy": true,
+    "enabledMcpjsonServers": ["claude-flow", "ruv-swarm"]
+  }
+  

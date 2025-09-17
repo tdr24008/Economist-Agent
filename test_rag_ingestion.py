@@ -4,7 +4,6 @@ Test RAG ingestion system with Weaviate and Neo4j
 """
 
 import asyncio
-import os
 import sys
 
 # Add hybrid_rag_agent to path
@@ -41,7 +40,7 @@ async def test_ingestion():
         print("📄 Starting document ingestion...")
         results = await pipeline.ingest_documents()
 
-        print(f"\n🎉 Ingestion complete!")
+        print("\n🎉 Ingestion complete!")
         print(f"Documents processed: {len(results)}")
 
         for result in results:
@@ -49,7 +48,7 @@ async def test_ingestion():
             if result.errors:
                 print(f"    ❌ Errors: {result.errors}")
             else:
-                print(f"    ✅ Success!")
+                print("    ✅ Success!")
 
         # Close connections
         await pipeline.close()

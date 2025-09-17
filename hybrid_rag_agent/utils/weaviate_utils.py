@@ -6,7 +6,7 @@ import os
 import json
 import asyncio
 import logging
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional
 from datetime import datetime
 import weaviate
 from weaviate.classes.init import Auth
@@ -82,7 +82,7 @@ class WeaviateClient:
                 return
 
             # Create collection with schema
-            collection = self.client.collections.create(
+            self.client.collections.create(
                 name=self.collection_name,
                 properties=[
                     weaviate.classes.config.Property(

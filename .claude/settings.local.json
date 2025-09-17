@@ -22,7 +22,18 @@
       "Bash(curl:*)",
       "Bash(cmd.exe /c \"docker logs economist-agent-weaviate-1\" --timeout 10000)",
       "Bash(cmd.exe /c \"docker logs --tail 20 economist-agent-weaviate-1\")",
-      "Bash(streamlit run:*)"
+      "Bash(streamlit run:*)",
+      "Bash(pip --version)",
+      "Bash(pip3:*)",
+      "Bash(docker-compose:*)",
+      "Read(//usr/bin/**)",
+      "Bash(echo $VIRTUAL_ENV)",
+      "Bash(conda info:*)",
+      "Bash(source:*)",
+      "Bash(chmod:*)",
+      "Bash(python:*)",
+      "Bash(ruff:*)",
+      "Bash(pip show:*)"
     ],
     "deny": [],
     "ask": []

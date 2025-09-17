@@ -4,15 +4,16 @@ Database utilities for PostgreSQL connection and operations.
 
 import os
 import json
-import asyncio
-from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime, timedelta, timezone
+from typing import List, Dict, Any, Optional
 from contextlib import asynccontextmanager
-from uuid import UUID
 import logging
 
-import asyncpg
-from asyncpg.pool import Pool
+try:
+    import asyncpg
+    from asyncpg.pool import Pool
+except ImportError:
+    asyncpg = None
+    Pool = None
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -83,13 +84,16 @@ async def close_database():
 async def get_document(document_id: str) -> Optional[Dict[str, Any]]:
     """
     Get document by ID.
-    
+
     Args:
         document_id: Document UUID
-    
+
     Returns:
         Document data or None if not found
     """
+    if asyncpg is None:
+        raise ImportError("asyncpg not installed. Install with: pip install asyncpg")
+
     async with db_pool.acquire() as conn:
         result = await conn.fetchrow(
             """
@@ -128,15 +132,18 @@ async def list_documents(
 ) -> List[Dict[str, Any]]:
     """
     List documents with optional filtering.
-    
+
     Args:
         limit: Maximum number of documents to return
         offset: Number of documents to skip
         metadata_filter: Optional metadata filter
-    
+
     Returns:
         List of documents
     """
+    if asyncpg is None:
+        raise ImportError("asyncpg not installed. Install with: pip install asyncpg")
+
     async with db_pool.acquire() as conn:
         query = """
             SELECT 

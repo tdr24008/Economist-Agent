@@ -3,9 +3,9 @@
 import pytest
 from pydantic_ai.models.test import TestModel
 
-from agent import hybrid_rag_agent
-from dependencies import SearchDependencies
-from settings import load_settings
+from ..agent import hybrid_rag_agent
+from ..dependencies import SearchDependencies
+from ..settings import load_settings
 
 class TestIntegration:
     """Integration tests for the complete agent system."""
@@ -142,8 +142,6 @@ class TestIntegration:
 
     def test_mock_data_quality(self):
         """Test that mock data provides realistic search results."""
-        deps = SearchDependencies(use_mocks=True)
-        
         # Verify mock data structure
         from dependencies import SAMPLE_VECTOR_RESULTS, SAMPLE_GRAPH_RESULTS, SAMPLE_DOCUMENTS
         

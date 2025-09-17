@@ -1,12 +1,11 @@
 """Hybrid RAG Agent with vector, keyword, and graph search capabilities."""
 
 from pydantic_ai import Agent, RunContext
-from typing import Optional, List, Dict, Any
-import warnings
+from typing import Optional
 
-from providers import get_llm_model
-from dependencies import SearchDependencies
-from orchestrator import QueryOrchestrator
+from .providers import get_llm_model
+from .dependencies import SearchDependencies
+from .orchestrator import QueryOrchestrator
 
 # System prompt for enhanced hybrid RAG capabilities
 SYSTEM_PROMPT = """You are an intelligent research assistant with access to an advanced Hybrid RAG (Retrieval-Augmented Generation) system. You have access to multiple specialized search tools:
@@ -35,9 +34,9 @@ SYSTEM_PROMPT = """You are an intelligent research assistant with access to an a
 
 Your goal is to provide accurate, well-sourced answers by intelligently leveraging the most appropriate search strategy for each query."""
 
-# Create the hybrid RAG agent
+# Create the hybrid RAG agent with deferred model loading
 hybrid_rag_agent = Agent(
-    get_llm_model(),
+    'openai:gpt-4',  # Use string model name instead of provider object
     deps_type=SearchDependencies,
     system_prompt=SYSTEM_PROMPT,
 )
@@ -227,7 +226,7 @@ async def intelligent_search(
 
         # Format routing information
         routing_info = []
-        routing_info.append(f"**Query Routing Decision:**")
+        routing_info.append("**Query Routing Decision:**")
         routing_info.append(f"- Databases queried: {', '.join(result.databases_queried)}")
         routing_info.append(f"- Processing time: {result.processing_time:.3f}s")
 
@@ -396,11 +395,11 @@ def run_hybrid_rag_sync(query: str, use_mocks: Optional[bool] = None) -> str:
     import asyncio
     
     async def _run():
-        from dependencies import create_search_dependencies
+        from .dependencies import create_search_dependencies
         deps = await create_search_dependencies(use_mocks=use_mocks)
         try:
             result = await hybrid_rag_agent.run(query, deps=deps)
-            return result.data
+            return result.output
         finally:
             await deps.close()
     
@@ -408,10 +407,10 @@ def run_hybrid_rag_sync(query: str, use_mocks: Optional[bool] = None) -> str:
 
 async def run_hybrid_rag_async(query: str, use_mocks: Optional[bool] = None) -> str:
     """Asynchronous helper to run the hybrid RAG agent."""
-    from dependencies import create_search_dependencies
+    from .dependencies import create_search_dependencies
     deps = await create_search_dependencies(use_mocks=use_mocks)
     try:
         result = await hybrid_rag_agent.run(query, deps=deps)
-        return result.data
+        return result.output
     finally:
         await deps.close()

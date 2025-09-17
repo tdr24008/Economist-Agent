@@ -4,10 +4,8 @@ UI components for Streamlit interface with routing visualization.
 
 import streamlit as st
 import pandas as pd
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 import plotly.graph_objects as go
-import plotly.express as px
-from datetime import datetime
 
 
 def display_routing_decision(routing_info: Dict[str, Any]):
@@ -27,7 +25,7 @@ def display_routing_decision(routing_info: Dict[str, Any]):
             if 'weaviate' in db.lower():
                 st.sidebar.success(f"✓ Weaviate ({db.split('_')[-1] if '_' in db else 'search'})")
             elif 'neo4j' in db.lower():
-                st.sidebar.success(f"✓ Neo4j (graph)")
+                st.sidebar.success("✓ Neo4j (graph)")
             else:
                 st.sidebar.info(f"✓ {db}")
 

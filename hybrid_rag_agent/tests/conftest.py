@@ -2,11 +2,10 @@
 
 import pytest
 import asyncio
-from unittest.mock import AsyncMock, MagicMock
 
 from pydantic_ai.models.test import TestModel
-from dependencies import SearchDependencies, MockSearchDependencies
-from agent import hybrid_rag_agent
+from ..dependencies import SearchDependencies, MockSearchDependencies
+from ..agent import hybrid_rag_agent
 
 @pytest.fixture
 def mock_dependencies():

@@ -1,0 +1,3 @@
+#!/bin/bash
+# Auto-activate virtual environment when entering directory
+source activate_venv.sh

@@ -25,6 +25,7 @@ try:
     from hybrid_rag_agent.agent import hybrid_rag_agent
     from hybrid_rag_agent.dependencies import SearchDependencies
     RAG_AVAILABLE = True
+    print("RAG system loaded successfully")
 except ImportError as e:
     print(f"RAG system not available: {e}")
     RAG_AVAILABLE = False

@@ -22,7 +22,6 @@ async def test_rag_integration():
     try:
         from agents import get_data_analyst_team, RAGRetrieverAgent
         from hybrid_rag_agent.dependencies import SearchDependencies
-        from hybrid_rag_agent.agent import hybrid_rag_agent
         print("✅ All imports successful")
     except ImportError as e:
         print(f"❌ Import failed: {e}")
@@ -64,7 +63,6 @@ async def test_rag_integration():
             def __init__(self):
                 self.model = "test-model"
 
-        model_client = MockModelClient()
         team = get_data_analyst_team("test-model")
         print(f"✅ Agent team created with {len(team.participants)} agents")
         print(f"   Agents: {[agent.name for agent in team.participants]}")
@@ -83,7 +81,7 @@ async def test_rag_integration():
 
         # Test search method
         search_result = await rag_agent.search_documents("machine learning", "hybrid")
-        print(f"✅ RAG Agent search completed")
+        print("✅ RAG Agent search completed")
         print(f"   Result preview: {search_result[:100]}...")
     except Exception as e:
         print(f"❌ RAGRetrieverAgent failed: {e}")

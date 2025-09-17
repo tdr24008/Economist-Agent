@@ -4,7 +4,6 @@ Pydantic models for data validation and serialization.
 
 from typing import List, Dict, Any, Optional, Literal
 from datetime import datetime
-from uuid import UUID
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 from enum import Enum
 
@@ -80,6 +79,13 @@ class SearchResponse(BaseModel):
     total_results: int = 0
     search_type: SearchType
     query_time_ms: float
+
+
+class Message(BaseModel):
+    """Message model for agent context."""
+    role: Literal["user", "assistant", "system"]
+    content: str
+    timestamp: datetime = Field(default_factory=datetime.now)
 
 
 class ToolCall(BaseModel):

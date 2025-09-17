@@ -7,9 +7,8 @@ from rich.prompt import Prompt
 from rich.markdown import Markdown
 from typing import Optional
 
-from agent import hybrid_rag_agent, run_hybrid_rag_sync
-from dependencies import SearchDependencies
-from settings import load_settings
+from .agent import hybrid_rag_agent
+from .dependencies import SearchDependencies
 
 console = Console()
 

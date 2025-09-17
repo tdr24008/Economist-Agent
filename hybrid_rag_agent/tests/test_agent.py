@@ -1,10 +1,9 @@
 """Test the Hybrid RAG Agent with TestModel validation."""
 
 import pytest
-from pydantic_ai.models.test import TestModel
 
-from agent import hybrid_rag_agent, run_hybrid_rag_sync, run_hybrid_rag_async
-from dependencies import SearchDependencies
+from ..agent import hybrid_rag_agent, run_hybrid_rag_sync, run_hybrid_rag_async
+from ..dependencies import SearchDependencies
 
 class TestHybridRAGAgent:
     """Test suite for the Hybrid RAG Agent."""

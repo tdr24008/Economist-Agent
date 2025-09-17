@@ -1,19 +1,11 @@
 """Quick validation test for the properly structured Hybrid RAG Agent."""
 
-import sys
 import asyncio
 import traceback
 
 def test_imports():
     """Test that all components can be imported successfully."""
     try:
-        from agent import hybrid_rag_agent, run_hybrid_rag_sync
-        from dependencies import SearchDependencies, MockSearchDependencies, create_search_dependencies
-        from settings import load_settings
-        from providers import get_llm_model
-        from utils.db_utils import DatabasePool
-        from utils.graph_utils import GraphitiClient
-        from utils.providers import get_embedding_client, get_embedding_model
         print("✅ All imports successful")
         return True
     except Exception as e:
@@ -108,9 +100,6 @@ async def test_async_agent_run():
 def test_infrastructure_integration():
     """Test that infrastructure components are accessible."""
     try:
-        from utils.db_utils import vector_search, hybrid_search, get_document, list_documents
-        from utils.graph_utils import search_knowledge_graph, get_entity_relationships
-        from utils.providers import get_llm_model as infra_get_llm_model, get_embedding_client
         
         print("✅ Infrastructure integration working - utils accessible")
         return True

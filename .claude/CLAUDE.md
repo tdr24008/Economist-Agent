@@ -52,39 +52,78 @@ All models are served locally via **Ollama** with no API keys or external data l
 # Download from ollama.com, then:
 ollama pull llama3.1
 ollama serve
+
+# Optional: Start vector database services
+docker compose up -d  # Starts Weaviate and Neo4j
 ```
 
-### Setup and Run
+### Environment Setup
 ```bash
+# Copy environment template
+cp .env.example .env
+# Edit .env with your configuration (OPENAI_API_KEY required for full mode)
+
 # Install dependencies
 pip install -r requirements.txt
 
-# Run main Streamlit application
+# Hybrid RAG module has separate requirements
+cd hybrid_rag_agent
+pip install -r requirements.txt
+cd ..
+```
+
+### Running Applications
+```bash
+# Main Streamlit application (full multi-agent system)
 streamlit run app.py
 
-# Alternative: Run simplified version
+# Alternative simplified version (lighter dependencies)
 streamlit run our-attempt/app.py
 
-# Interactive RAG CLI (works in mock mode)
+# Interactive RAG CLI (works in mock mode without databases)
 cd hybrid_rag_agent
 python cli.py
 ```
 
+### Database Services (Optional)
+```bash
+# Start all services (Weaviate + Neo4j)
+docker compose up -d
+
+# Check service health
+docker compose ps
+docker compose logs weaviate
+docker compose logs neo4j
+
+# Stop services
+docker compose down
+
+# Reset data volumes
+docker compose down -v
+```
+
 ### Testing
 ```bash
-# Run RAG agent tests
+# Run all RAG agent tests
 cd hybrid_rag_agent
 python -m pytest tests/ -v
 
-# Run integration tests
-python test_integration.py
+# Run specific test files
+python -m pytest tests/test_agent.py -v
+python -m pytest tests/test_integration.py -v
+python -m pytest tests/test_search_tools.py -v
 
-# Validate RAG structure
-python test_structure_validation.py
+# Run root-level integration tests
+python test_integration.py
+python test_rag_ingestion.py
+
+# Validate project structure
+python hybrid_rag_agent/test_structure_validation.py
 ```
 
 ### Available Models
-- `llama3.1:8b` (default)
+- `llama3.1:8b` (default for main app)
+- `qwen2.5:3b-instruct-q4_K_M` (default for agents.py)
 - `qwen2.5-coder`
 - `qwen3:8b`
 
@@ -97,10 +136,12 @@ python test_structure_validation.py
 
 ### RAG System Architecture
 - **Mock Mode**: Works without database setup using realistic sample data
-- **Vector Search**: Uses embeddings for semantic similarity matching
+- **Vector Search**: Uses embeddings for semantic similarity matching via Weaviate
 - **Hybrid Search**: Combines semantic + keyword search with PostgreSQL TSVector
-- **Knowledge Graph**: Entity relationships via Neo4j/Graphiti integration
+- **Knowledge Graph**: Entity relationships via Neo4j with APOC procedures
 - **Pydantic AI**: Type-safe agent development with dependency injection
+- **SearchDependencies**: Centralized dependency injection for database connections
+- **Two-tier settings**: Environment variables via `.env` and Pydantic Settings
 
 ### File Handling
 - Uploaded datasets are automatically saved to `code_executor/` directory
@@ -117,12 +158,14 @@ The app includes Windows-specific asyncio event loop policy configuration for pr
 
 ## Important Notes
 
-- All LLM calls and code execution are offline via Ollama
-- Code execution is isolated to the `code_executor/` directory
+- All LLM calls and code execution are offline via Ollama (except embedding services which may use OpenAI)
+- Code execution is isolated to the `code_executor/` directory for security
 - The system expects datasets with datetime columns (datetime, date, timestamp, or time)
 - Generated visualizations are automatically detected and displayed in the Streamlit interface
 - RAG system works in mock mode without external dependencies for development
 - Two implementation approaches available: full integration (`app.py`) and simplified (`our-attempt/app.py`)
+- Environment configuration handles both local Ollama and OpenAI API models
+- Docker Compose provides optional Weaviate + Neo4j services for full RAG capabilities
 
 ## Project Structure Differences
 
@@ -137,3 +180,20 @@ The app includes Windows-specific asyncio event loop policy configuration for pr
 - Focuses on core economist analysis without RAG complexity
 - Lighter dependencies and faster startup
 - Good for development and testing core analysis features
+- Uses different model defaults (configurable via environment variables)
+
+## Configuration Management
+
+### Environment Variables
+Key environment variables (see `.env.example`):
+- `OLLAMA_HOST`: Ollama server URL (default: http://127.0.0.1:11434)
+- `MODEL_NAME`: Default model for agent system (default: qwen2.5:3b-instruct-q4_K_M)
+- `OPENAI_API_KEY`: Required for OpenAI-based embeddings and models
+- `WEAVIATE_URL`: Weaviate instance URL (default: http://localhost:8080)
+- `NEO4J_URI`: Neo4j connection URI (default: bolt://localhost:7687)
+- `NEO4J_PASSWORD`: Neo4j database password (default: password123)
+
+### Mock vs Production Mode
+- **Mock Mode**: Leave API keys empty in `.env` to use sample data
+- **Production Mode**: Set OPENAI_API_KEY for full vector search capabilities
+- **Hybrid Mode**: Use Ollama for LLM, OpenAI for embeddings

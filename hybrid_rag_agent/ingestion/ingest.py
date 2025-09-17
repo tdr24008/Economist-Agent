@@ -5,9 +5,7 @@ Main ingestion script for processing documents into Weaviate and Neo4j knowledge
 import os
 import asyncio
 import logging
-import json
 import glob
-from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import argparse
