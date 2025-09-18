@@ -33,7 +33,10 @@
       "Bash(chmod:*)",
       "Bash(python:*)",
       "Bash(ruff:*)",
-      "Bash(pip show:*)"
+      "Bash(pip show:*)",
+      "Bash(venv/bin/pip install:*)",
+      "Bash(timeout:*)",
+      "Bash(time:*)"
     ],
     "deny": [],
     "ask": []

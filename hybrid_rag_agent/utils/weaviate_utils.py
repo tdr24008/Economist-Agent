@@ -8,10 +8,24 @@ import asyncio
 import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-import weaviate
-from weaviate.classes.init import Auth
-from weaviate.classes.config import Configure
-from weaviate.classes.query import MetadataQuery
+# Lazy import of weaviate to avoid slow startup
+weaviate = None
+Auth = None
+Configure = None
+MetadataQuery = None
+
+def _import_weaviate():
+    """Lazy import of weaviate modules."""
+    global weaviate, Auth, Configure, MetadataQuery
+    if weaviate is None:
+        import weaviate as _weaviate
+        from weaviate.classes.init import Auth as _Auth
+        from weaviate.classes.config import Configure as _Configure
+        from weaviate.classes.query import MetadataQuery as _MetadataQuery
+        weaviate = _weaviate
+        Auth = _Auth
+        Configure = _Configure
+        MetadataQuery = _MetadataQuery
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -41,6 +55,9 @@ class WeaviateClient:
         """Initialize Weaviate client and create collection if needed."""
         if self._initialized:
             return
+
+        # Import weaviate modules only when needed
+        _import_weaviate()
 
         try:
             # Connect to Weaviate
@@ -85,18 +102,9 @@ class WeaviateClient:
             self.client.collections.create(
                 name=self.collection_name,
                 properties=[
-                    weaviate.classes.config.Property(
-                        name="content",
-                        data_type=weaviate.classes.config.DataType.TEXT,
-                        description="Main content of the document chunk"
-                    ),
-                    weaviate.classes.config.Property(
-                        name="document_id",
-                        data_type=weaviate.classes.config.DataType.TEXT,
-                        description="Unique identifier for the source document"
-                    ),
-                    weaviate.classes.config.Property(
-                        name="document_title",
+                    _build_property("content", "TEXT", "Main content of the document chunk"),
+                    _build_property("document_id", "TEXT", "Unique identifier for the source document"),
+                    _build_property("document_title",
                         data_type=weaviate.classes.config.DataType.TEXT,
                         description="Title of the source document"
                     ),

@@ -67,18 +67,26 @@ class DatabasePool:
             yield connection
 
 
-# Global database pool instance
-db_pool = DatabasePool()
+# Global database pool instance (lazy initialization)
+db_pool = None
+
+def get_db_pool():
+    """Get or create the global database pool."""
+    global db_pool
+    if db_pool is None:
+        db_pool = DatabasePool()
+    return db_pool
 
 
 async def initialize_database():
     """Initialize database connection pool."""
-    await db_pool.initialize()
+    await get_db_pool().initialize()
 
 
 async def close_database():
     """Close database connection pool."""
-    await db_pool.close()
+    if db_pool:
+        await get_db_pool().close()
 
 # Document Management Functions
 async def get_document(document_id: str) -> Optional[Dict[str, Any]]:
@@ -94,7 +102,7 @@ async def get_document(document_id: str) -> Optional[Dict[str, Any]]:
     if asyncpg is None:
         raise ImportError("asyncpg not installed. Install with: pip install asyncpg")
 
-    async with db_pool.acquire() as conn:
+    async with get_db_pool().acquire() as conn:
         result = await conn.fetchrow(
             """
             SELECT 
@@ -144,7 +152,7 @@ async def list_documents(
     if asyncpg is None:
         raise ImportError("asyncpg not installed. Install with: pip install asyncpg")
 
-    async with db_pool.acquire() as conn:
+    async with get_db_pool().acquire() as conn:
         query = """
             SELECT 
                 d.id::text,
@@ -207,7 +215,7 @@ async def vector_search(
     Returns:
         List of matching chunks ordered by similarity (best first)
     """
-    async with db_pool.acquire() as conn:
+    async with get_db_pool().acquire() as conn:
         # Convert embedding to PostgreSQL vector string format
         # PostgreSQL vector format: '[1.0,2.0,3.0]' (no spaces after commas)
         embedding_str = '[' + ','.join(map(str, embedding)) + ']'
@@ -250,7 +258,7 @@ async def hybrid_search(
     Returns:
         List of matching chunks ordered by combined score (best first)
     """
-    async with db_pool.acquire() as conn:
+    async with get_db_pool().acquire() as conn:
         # Convert embedding to PostgreSQL vector string format
         # PostgreSQL vector format: '[1.0,2.0,3.0]' (no spaces after commas)
         embedding_str = '[' + ','.join(map(str, embedding)) + ']'
@@ -290,7 +298,7 @@ async def get_document_chunks(document_id: str) -> List[Dict[str, Any]]:
     Returns:
         List of chunks ordered by chunk index
     """
-    async with db_pool.acquire() as conn:
+    async with get_db_pool().acquire() as conn:
         results = await conn.fetch(
             "SELECT * FROM get_document_chunks($1::uuid)",
             document_id
@@ -319,7 +327,7 @@ async def execute_query(query: str, *params) -> List[Dict[str, Any]]:
     Returns:
         Query results
     """
-    async with db_pool.acquire() as conn:
+    async with get_db_pool().acquire() as conn:
         results = await conn.fetch(query, *params)
         return [dict(row) for row in results]
 
@@ -332,7 +340,7 @@ async def test_connection() -> bool:
         True if connection successful
     """
     try:
-        async with db_pool.acquire() as conn:
+        async with get_db_pool().acquire() as conn:
             await conn.fetchval("SELECT 1")
         return True
     except Exception as e:

@@ -29,6 +29,8 @@ try:
 except ImportError as e:
     print(f"RAG system not available: {e}")
     RAG_AVAILABLE = False
+    hybrid_rag_agent = None
+    SearchDependencies = None
 
 
 # -------------------------------

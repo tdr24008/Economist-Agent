@@ -6,3 +6,4 @@ numpy>=1.24.0
 rich>=13.0.0
 weaviate-client>=4.16.0
 neo4j>=5.28.0
+graphiti-core>=0.20.0
