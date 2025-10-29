@@ -1,5 +1,7 @@
 # Economist Agent 📈🏦💰
 
+### Currently not live but demo from earlier hackathon here - https://youtu.be/N-81Gqv1P78
+
 An interactive **economist research assistant** built with **Streamlit**, **Autogen AgentChat**, and enhanced with **Hybrid RAG capabilities**, running locally for maximum data security.
 
 The system combines multiple specialized agents:
